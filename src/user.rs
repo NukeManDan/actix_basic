@@ -6,7 +6,6 @@ use validator_derive;
 
 use reqwest;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Submits a GET request to a specified URL, and returns a vector of users. Expected response is in json format, and can be parsed by the `User` struct with accessible elements by key name.
 pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error>> {
@@ -25,8 +24,7 @@ pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error
 ///
 /// > Note: The name will need to be at least 3 characters long and the email address should be valid.
 pub async fn post_user(url: &str, user_json: &str) -> Result<User, Box<dyn std::error::Error>> {
-    let mut post = User::default();
-    post = serde_json::from_str(user_json)?;
+    let post: User = serde_json::from_str(user_json)?;
 
     post.validate()?; // validation requirements defined in struct definition
 
