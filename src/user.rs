@@ -1,10 +1,12 @@
 //! Tasks defined rust_actix-basic.pdf
 //! Using endpoints at: https://jsonplaceholder.typicode.com/<API>
 
+use validator::Validate;
+use validator_derive;
+
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use validator::Validate;
 
 /// Submits a GET request to a specified URL, and returns a vector of users. Expected response is in json format, and can be parsed by the `User` struct with accessible elements by key name.
 pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error>> {
@@ -13,16 +15,16 @@ pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error
     Ok(users)
 }
 
-/// `POST` a new user with a JSON formatted raw string (&str) passed into `post_user`. Returns a  `serde_json::Value` object with the body of the response.
+/// `POST` a new user with a JSON formatted raw string (&str) passed into `post_user`. Returns a `User` struct with fields filled as returned by the endpoint,if the post is valid. This will include a new `User.id` field if the user is set properly.
 ///
 /// The name will need to be at least 3 characters long and the email address should be valid.
 ///
 /// ## Errors
 ///
-/// This will panic if the name is less than 3 characters, or email is not valid.
+/// This will panic if the `name` is less than 3 characters, or `email` is not valid.
 ///
 /// > Note: The name will need to be at least 3 characters long and the email address should be valid.
-pub async fn post_user(url: &str, user_json: &str) -> Result<Value, Box<dyn std::error::Error>> {
+pub async fn post_user(url: &str, user_json: &str) -> Result<User, Box<dyn std::error::Error>> {
     let mut post = User::default();
     post = serde_json::from_str(user_json)?;
 
@@ -37,8 +39,7 @@ pub async fn post_user(url: &str, user_json: &str) -> Result<Value, Box<dyn std:
 }
 
 /// Defining Structs used to serialize and deserialize responses from reqwest for a user
-
-#[derive(Serialize, Deserialize, Validate, Default, Debug)]
+#[derive(Serialize, Deserialize, validator_derive::Validate, Default, Debug)]
 pub struct User {
     #[serde(default)]
     pub id: usize,

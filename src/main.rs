@@ -1,10 +1,8 @@
 //! Tasks defined rust_actix-basic.pdf
 //! using endpoint: https://jsonplaceholder.typicode.com/
 
-#[macro_use]
-extern crate validator_derive;
-extern crate validator;
-
+use log::info;
+use simplelog::*;
 use tokio;
 
 mod user;
@@ -13,14 +11,11 @@ const URL: &str = "https://jsonplaceholder.typicode.com/api/v1/users";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("******\nGetting users from {}...", URL);
-    let users = user::get_users(URL).await?;
-    println!(
-        "******\nResponse: (Address of a user):\n {:#?}\n******",
-        users[2].address
-    );
+    let _ = SimpleLogger::init(LevelFilter::Info, Config::default());
 
-    println!("-------------------------------------\n");
+    info!("Getting users from {}...", URL);
+    let users = user::get_users(URL).await?;
+    info!("Response: (Address of a user):\n {:#?}", users[2].address);
 
     let user_str = r#"
     {
@@ -28,9 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "email": "martin@martinfowler.com"
     }"#;
     //
-    println!("******\nPosting new user:\n{}...", user_str);
+    info!("Posting new user:{}", user_str);
     let new_user = user::post_user(URL, user_str).await?;
-    println!("******\nResponse (full body):\n{:?}\n******", new_user);
+    info!("Response (full body):\n{:?}", new_user);
 
     Ok(())
 }
