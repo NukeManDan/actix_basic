@@ -10,7 +10,7 @@ cargo run
 
 # Tests
 
-We use [cargo's testing system](https://doc.rust-lang.org/cargo/commands/cargo-test.html). To run tests in `/tests/*`:
+We use [cargo's testing system](https://doc.rust-lang.org/cargo/commands/cargo-test.html). To run tests:
 
 ```bash
 cargo test
