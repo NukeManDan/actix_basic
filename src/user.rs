@@ -1,6 +1,7 @@
 //! Tasks defined rust_actix-basic.pdf
 //! Using endpoints at: https://jsonplaceholder.typicode.com/<API>
 
+use log::{error, info};
 use validator::Validate;
 use validator_derive;
 
@@ -9,9 +10,10 @@ use serde::{Deserialize, Serialize};
 
 /// Submits a GET request to a specified URL, and returns a vector of users. Expected response is in json format, and can be parsed by the `User` struct with accessible elements by key name.
 pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error>> {
-    let users = reqwest::get(url).await?.json::<Vec<User>>().await?;
-
-    Ok(users)
+    // let users = reqwest::get(url).await?.json::<Vec<User>>().await?;
+    let resp = reqwest::get(url).await?;
+    print_status(&resp);
+    Ok(resp.json::<Vec<User>>().await?)
 }
 
 /// `POST` a new user with a JSON formatted raw string (&str) passed into `post_user`. Returns a `User` struct with fields filled as returned by the endpoint,if the post is valid. This will include a new `User.id` field if the user is set properly.
@@ -30,10 +32,34 @@ pub async fn post_user(url: &str, user_json: &str) -> Result<User, Box<dyn std::
 
     let client = reqwest::Client::new();
     let resp = client.post(url).json(&post).send().await?;
+    print_status(&resp);
 
     let body = serde_json::from_str(resp.text().await?.as_str())?;
 
     Ok(body)
+}
+
+fn print_status(resp: &reqwest::Response) {
+    match resp.status() {
+        reqwest::StatusCode::OK => info!(
+            "Response Status Code: {} ({}) - {}",
+            resp.status().as_str(),
+            resp.status().canonical_reason().unwrap(),
+            resp.url().as_str()
+        ),
+        reqwest::StatusCode::NOT_FOUND => error!(
+            "Response Status Code: {} ({}) - {}",
+            resp.status().as_str(),
+            resp.status().canonical_reason().unwrap(),
+            resp.url().as_str()
+        ),
+        _ => info!(
+            "Response Status Code: {} ({}) - {}",
+            resp.status().as_str(),
+            resp.status().canonical_reason().unwrap(),
+            resp.url().as_str()
+        ),
+    };
 }
 
 /// Defining Structs used to serialize and deserialize responses from reqwest for a user
@@ -42,9 +68,10 @@ pub struct User {
     #[serde(default)]
     pub id: usize,
     #[serde(default)]
-    #[validate(length(min = 3))]
+    #[validate(length(min = 3, max = 80))]
     pub name: String,
     #[serde(default)]
+    // #[validate(length(min = 3, max = 80))]
     pub username: String,
     #[serde(default)]
     #[validate(email)]
@@ -52,6 +79,7 @@ pub struct User {
     #[serde(default)]
     pub address: Address,
     #[serde(default)]
+    // #[validate(phone)] // FIXME:Fails with "unexpected validator" on compile.
     pub phone: String,
     #[serde(default)]
     pub website: String,
@@ -92,6 +120,7 @@ pub struct Company {
     pub bs: String,
 }
 
+// TESTS ------------------
 #[cfg(test)]
 mod tests {
     //! Tests for `get_user` and `post_user` methods
@@ -142,8 +171,8 @@ mod tests {
         // println!("---Response (full body):\n{:#?}", new_user);
 
         assert_eq!(
-            resp_json_expected.get("email").unwrap(),
-            new_user.get("email").unwrap()
+            resp_json_expected.get("email").unwrap().as_str().unwrap(),
+            new_user.email
         );
 
         Ok(())
@@ -156,6 +185,19 @@ mod tests {
         let user_str = r#"
     { 
         "name": "MF",
+        "email": "fine@email.com"
+    }"#;
+
+        post_user(URL, user_str).await.unwrap();
+    }
+
+    #[tokio::main]
+    #[test]
+    #[should_panic]
+    async fn it_fails_to_post_a_long_user_name() {
+        let user_str = r#"
+    { 
+        "name": "9&mwuYuR&Hhp4p3%@bCvXVs5tbvZhFqmci8hcTXMSwi@x44e6M$mmQ#kE^agBNT3Brfnq757r8a#gJ$!vCYTd4SqMaHuAqSMbea4uhrC^2qi3%jFw",
         "email": "fine@email.com"
     }"#;
 
