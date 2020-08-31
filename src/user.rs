@@ -1,7 +1,7 @@
 //! Tasks defined rust_actix-basic.pdf
 //! Using endpoints at: https://jsonplaceholder.typicode.com/<API>
 
-use log::{error, info};
+use log::{debug, error, info};
 use validator::Validate;
 use validator_derive;
 
@@ -22,9 +22,9 @@ pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error
 ///
 /// ## Errors
 ///
-/// This will panic if the `name` is less than 3 characters, or `email` is not valid.
+/// This will panic if the `name` is not within range (3,80) characters, or `email` is not valid.
 ///
-/// > Note: The name will need to be at least 3 characters long and the email address should be valid.
+/// > Note: The name will need to be between 3 and 80 characters long and the email address should be valid.
 pub async fn post_user(url: &str, user_json: &str) -> Result<User, Box<dyn std::error::Error>> {
     let post: User = serde_json::from_str(user_json)?;
 
@@ -40,30 +40,21 @@ pub async fn post_user(url: &str, user_json: &str) -> Result<User, Box<dyn std::
 }
 
 fn print_status(resp: &reqwest::Response) {
+    let text = format!(
+        "Response Status Code: {} ({}) - {}",
+        resp.status().as_str(),
+        resp.status().canonical_reason().unwrap(),
+        resp.url().as_str()
+    );
     match resp.status() {
-        reqwest::StatusCode::OK => info!(
-            "Response Status Code: {} ({}) - {}",
-            resp.status().as_str(),
-            resp.status().canonical_reason().unwrap(),
-            resp.url().as_str()
-        ),
-        reqwest::StatusCode::NOT_FOUND => error!(
-            "Response Status Code: {} ({}) - {}",
-            resp.status().as_str(),
-            resp.status().canonical_reason().unwrap(),
-            resp.url().as_str()
-        ),
-        _ => info!(
-            "Response Status Code: {} ({}) - {}",
-            resp.status().as_str(),
-            resp.status().canonical_reason().unwrap(),
-            resp.url().as_str()
-        ),
+        reqwest::StatusCode::OK => debug!("{}", &text),
+        reqwest::StatusCode::NOT_FOUND => error!("{}", &text),
+        _ => info!("{}", &text),
     };
 }
 
 /// Defining Structs used to serialize and deserialize responses from reqwest for a user
-#[derive(Serialize, Deserialize, validator_derive::Validate, Default, Debug)]
+#[derive(Serialize, Deserialize, validator_derive::Validate, Default, Debug, PartialEq)]
 pub struct User {
     #[serde(default)]
     pub id: usize,
@@ -87,7 +78,7 @@ pub struct User {
     pub company: Company,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
 pub struct Address {
     #[serde(default)]
     pub street: String,
@@ -101,7 +92,7 @@ pub struct Address {
     pub geo: Geo,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
 pub struct Geo {
     #[serde(default)]
     pub lat: String,
@@ -109,7 +100,7 @@ pub struct Geo {
     pub lng: String,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
 pub struct Company {
     #[serde(default)]
     pub name: String,
@@ -136,21 +127,9 @@ mod tests {
     #[tokio::main]
     #[test]
     async fn it_gets_users() -> Result<(), Box<dyn std::error::Error>> {
-        let address_check = Address {
-            street: String::from("Douglas Extension"),
-            suite: String::from("Suite 847"),
-            city: String::from("McKenziehaven"),
-            zipcode: String::from("59590-4157"),
-            geo: Geo {
-                lat: String::from("-68.6102"),
-                lng: String::from("-47.0653"),
-            },
-        };
-
         let users: Vec<User> = get_users(URL).await?;
-        // println!("---Response: (Address of a user):\n {:#?}", users[2].address.street);
 
-        assert_eq!(address_check.street, users[2].address.street);
+        assert!(users.len() > 0);
 
         Ok(())
     }
@@ -164,16 +143,15 @@ mod tests {
         "email": "martin@martinfowler.com"
     }"#;
 
-        let resp_json_expected = json!({ "apiId": String::from("v1"), "email": String::from("martin@martinfowler.com"), "id": 11, "name": String::from("Martin Fowler")});
+        let resp_json_expected: User = serde_json::from_value(
+            json!({ "apiId": String::from("v1"), "email": String::from("martin@martinfowler.com"), "id": 11, "name": String::from("Martin Fowler")}),
+        )?; //NOTE: assumes id = 11, otherwise fails! Could we instead make a wildcard?
 
         // println!("Posting new user:\n{}...", user_str);
         let new_user = post_user(URL, user_str).await?;
         // println!("---Response (full body):\n{:#?}", new_user);
 
-        assert_eq!(
-            resp_json_expected.get("email").unwrap().as_str().unwrap(),
-            new_user.email
-        );
+        assert_eq!(resp_json_expected, new_user);
 
         Ok(())
     }

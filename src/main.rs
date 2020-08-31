@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Getting users from {}...", URL);
     let users = user::get_users(URL).await?;
-    info!("Response: (Address of a user):\n {:#?}", users[2].address);
+    info!("Response:\n {:#?}", users);
 
     let user_str = r#"
     {
