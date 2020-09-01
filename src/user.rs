@@ -9,7 +9,8 @@ use reqwest;
 use serde::{Deserialize, Serialize};
 
 /// Submits a GET request to a specified URL, and returns a vector of users. Expected response is in json format, and can be parsed by the `User` struct with accessible elements by key name.
-pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error>> {
+#[allow(dead_code)] // used in tests only
+pub async fn get_all(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error>> {
     // let users = reqwest::get(url).await?.json::<Vec<User>>().await?;
     let resp = reqwest::get(url).await?;
     print_status(&resp);
@@ -25,7 +26,8 @@ pub async fn get_users(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error
 /// This will panic if the `name` is not within range (3,80) characters, or `email` is not valid.
 ///
 /// > Note: The name will need to be between 3 and 80 characters long and the email address should be valid.
-pub async fn post_user(url: &str, user_json: &str) -> Result<User, Box<dyn std::error::Error>> {
+#[allow(dead_code)] // used in tests only
+pub async fn post(url: &str, user_json: &str) -> Result<User, Box<dyn std::error::Error>> {
     let post: User = serde_json::from_str(user_json)?;
 
     post.validate()?; // validation requirements defined in struct definition
@@ -39,6 +41,7 @@ pub async fn post_user(url: &str, user_json: &str) -> Result<User, Box<dyn std::
     Ok(body)
 }
 
+#[allow(dead_code)] // used in tests only
 fn print_status(resp: &reqwest::Response) {
     let text = format!(
         "Response Status Code: {} ({}) - {}",
@@ -120,21 +123,20 @@ mod tests {
     use super::*;
 
     use serde_json::json;
-    use tokio;
 
-    const URL: &str = "https://jsonplaceholder.typicode.com/api/v1/users";
+    const URL: &str = "http://127.0.0.1:9090/api/v1/users";
 
-    #[tokio::main]
+    #[actix_rt::main]
     #[test]
     async fn it_gets_users() -> Result<(), Box<dyn std::error::Error>> {
-        let users: Vec<User> = get_users(URL).await?;
+        let users: Vec<User> = get_all(URL).await?;
 
         assert!(users.len() > 0);
 
         Ok(())
     }
 
-    #[tokio::main]
+    #[actix_rt::main]
     #[test]
     async fn it_posts_a_user() -> Result<(), Box<dyn std::error::Error>> {
         let user_str = r#"
@@ -148,7 +150,7 @@ mod tests {
         )?; //NOTE: assumes id = 11, otherwise fails! Could we instead make a wildcard?
 
         // println!("Posting new user:\n{}...", user_str);
-        let new_user = post_user(URL, user_str).await?;
+        let new_user = post(URL, user_str).await?;
         // println!("---Response (full body):\n{:#?}", new_user);
 
         assert_eq!(resp_json_expected, new_user);
@@ -156,7 +158,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::main]
+    #[actix_rt::main]
     #[test]
     #[should_panic]
     async fn it_fails_to_post_a_short_user_name() {
@@ -166,10 +168,10 @@ mod tests {
         "email": "fine@email.com"
     }"#;
 
-        post_user(URL, user_str).await.unwrap();
+        post(URL, user_str).await.unwrap();
     }
 
-    #[tokio::main]
+    #[actix_rt::main]
     #[test]
     #[should_panic]
     async fn it_fails_to_post_a_long_user_name() {
@@ -179,10 +181,10 @@ mod tests {
         "email": "fine@email.com"
     }"#;
 
-        post_user(URL, user_str).await.unwrap();
+        post(URL, user_str).await.unwrap();
     }
 
-    #[tokio::main]
+    #[actix_rt::main]
     #[test]
     #[should_panic]
     async fn it_fails_to_post_invalid_user_email() {
@@ -192,6 +194,6 @@ mod tests {
         "email": "bad"
     }"#;
 
-        post_user(URL, user_str).await.unwrap();
+        post(URL, user_str).await.unwrap();
     }
 }
