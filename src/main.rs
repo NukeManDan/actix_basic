@@ -18,7 +18,6 @@ use actix_web::{error, middleware, web, App, HttpResponse, HttpServer, Result, E
 
 mod user;
 
-
 /// favicon handler
 #[get("/favicon.ico")]
 async fn favicon() -> Result<fs::NamedFile> {
