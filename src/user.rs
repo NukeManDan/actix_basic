@@ -76,7 +76,6 @@ mod tests {
 
     use super::*;
 
-    use log::{debug, error, info};
     use reqwest;
     use serde_json::json;
 
