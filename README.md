@@ -8,7 +8,15 @@ Simple `actix_web` server example emulating the behavior of `https://jsonplaceho
 cargo run
 ```
 
-This server then is bound and listening on `127.0.0.1:9090`.
+This server, by default, binds and listens on `127.0.0.1:9090`.
+
+### Setting a binding with `BIND_URL` environment variable
+
+To override the default, set the environment variable `BIND_URL` to what you desire:
+
+```bash
+export BIND_URL="127.0.0.1:4242"
+```
 
 ## Querying
 

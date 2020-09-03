@@ -5,16 +5,16 @@
 //! - Modeling endpoint behavior base on [this test api](https://jsonplaceholder.typicode.com/api/v1/users)
 //! - This server implementation based on [this basic example](https://github.com/actix/examples/blob/master/basics/src/main.rs)
 
+use ::serde_json;
 use simplelog::*;
 use std::{env, io};
 use validator::Validate;
-use::serde_json;
 
 #[macro_use]
 extern crate actix_web;
 use actix_files as fs;
 use actix_web::http::StatusCode;
-use actix_web::{error, middleware, web, App, HttpResponse, HttpServer, Result, Error};
+use actix_web::{error, middleware, web, App, Error, HttpResponse, HttpServer, Result};
 
 mod user;
 
@@ -25,27 +25,25 @@ async fn favicon() -> Result<fs::NamedFile> {
 }
 
 /// simple index handler
-#[get("/")]
-async fn welcome() -> Result<HttpResponse> {
+#[get("/health")]
+async fn health() -> Result<HttpResponse> {
     Ok(HttpResponse::build(StatusCode::OK)
-        .content_type("text/html; charset=utf-8")
-        .body(include_str!("../static/welcome.html")))
+        .content_type("text/plain; charset=utf-8")
+        .body("ok"))
 }
 
 /// 404 handler
-async fn p404() -> Result<fs::NamedFile> {
-    Ok(fs::NamedFile::open("static/404.html")?.set_status_code(StatusCode::NOT_FOUND))
+async fn p404() -> Result<HttpResponse> {
+    Ok(HttpResponse::new(StatusCode::NOT_FOUND))
 }
 
 /// User GET requests specifying the API version `/api/{version}/users`
 async fn get_users(vers: web::Path<(String,)>) -> Result<HttpResponse> {
     vers_check(&vers)?;
 
-    Ok(
-        HttpResponse::build(StatusCode::OK)
+    Ok(HttpResponse::build(StatusCode::OK)
         .content_type("application/json; charset=utf-8")
-        .body(include_str!("../static/users.json"))
-    )
+        .body(include_str!("../static/users.json")))
     // FIXME: this results in a static file of users, needs to give database values!!
 }
 
@@ -56,26 +54,28 @@ async fn post_user(
 ) -> Result<HttpResponse, Error> {
     vers_check(&vers)?;
 
+    // NOTE: this results in *dummy* response, needs to write to and return database values in production!!
     let mut new_user = user.into_inner();
     new_user.id = 11;
-    // FIXME: this results in dummy response, needs to write to and return database values!!
-
 
     // validation requirements defined in User struct definition, for each element with a #[validate(...)] macro
-    match new_user.validate(){ 
+    match new_user.validate() {
         Ok(()) => {
             Ok(HttpResponse::build(StatusCode::CREATED)
-            // .content_type("application/json; charset=utf-8")
-            .json(serde_json::json!(&new_user)))
-        },
-        Err(e) => Err(error::ErrorUnprocessableEntity(e))
+                // .content_type("application/json; charset=utf-8")
+                .json(serde_json::json!(&new_user)))
+        }
+        Err(e) => Err(error::ErrorUnprocessableEntity(e)),
     }
 }
 
 /// Presently, only v1 version supported
 fn vers_check(vers: &web::Path<(String,)>) -> Result<(), Error> {
     if vers.0.as_str() != "v1" {
-        Err(error::ErrorMethodNotAllowed(format!("There is no API version \"{}\" ! Try .../api/v1/...\n",vers.0)))
+        Err(error::ErrorMethodNotAllowed(format!(
+            "There is no API version \"{}\" ! Try .../api/v1/...\n",
+            vers.0
+        )))
     } else {
         Ok(()) // API is correct version
     }
@@ -91,11 +91,9 @@ async fn main() -> io::Result<()> {
             // Logger
             .wrap(middleware::Logger::default())
             // Limit size of the payload (global configuration)
-            .data(web::JsonConfig::default().limit(4096)) 
-            // register favicon
-            .service(favicon)
+            .data(web::JsonConfig::default().limit(4096))
             // register simple route, handle all methods
-            .service(welcome)
+            .service(health)
             // with version path parameters
             .service(
                 web::resource("/api/{vers}/users")
@@ -108,18 +106,11 @@ async fn main() -> io::Result<()> {
             .service(fs::Files::new("/static", "static").show_files_listing())
             // default
             .default_service(
-                // 404 for GET request
-                web::resource("")
-                    .route(web::get().to(p404))
-                    // // all requests that are not `GET`
-                    // .route(
-                    //     web::route()
-                    //         .guard(guard::Not(guard::Get()))
-                    //         .to(HttpResponse::MethodNotAllowed),
-                    // ),
+                // 404 for any other request
+                web::resource("").route(web::get().to(p404)),
             )
     })
-    .bind("127.0.0.1:9090")?
+    .bind(env::var("BIND_URL").unwrap_or("127.0.0.1:9090".into()))?
     .run()
     .await
 }

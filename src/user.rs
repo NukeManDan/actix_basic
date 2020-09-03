@@ -9,49 +9,32 @@ use serde::{Deserialize, Serialize};
 /// Struct used to serialize and deserialize responses from for a user
 #[derive(Serialize, Deserialize, validator_derive::Validate, Default, Debug, PartialEq)]
 pub struct User {
-    #[serde(default)]
     pub id: usize,
-    #[serde(default)]
     #[validate(length(min = 3, max = 80))]
     pub name: String,
-    #[serde(default)]
-    // #[validate(length(min = 3, max = 80))]
     pub username: String,
-    #[serde(default)]
     #[validate(email)]
     pub email: String,
-    #[serde(default)]
     pub address: Address,
-    #[serde(default)]
-    // #[validate(phone)] // FIXME:Fails with "unexpected validator" on compile.
     pub phone: String,
-    #[serde(default)]
     pub website: String,
-    #[serde(default)]
     pub company: Company,
 }
 
 /// Internal to `User` struct
 #[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
 pub struct Address {
-    #[serde(default)]
     pub street: String,
-    #[serde(default)]
     pub suite: String,
-    #[serde(default)]
     pub city: String,
-    #[serde(default)]
     pub zipcode: String,
-    #[serde(default)]
     pub geo: Geo,
 }
 
 /// Internal to `User` struct
 #[derive(Serialize, Deserialize, Default, Debug, PartialEq)]
 pub struct Geo {
-    #[serde(default)]
     pub lat: String,
-    #[serde(default)]
     pub lng: String,
 }
 
