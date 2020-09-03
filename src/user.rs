@@ -67,7 +67,7 @@ pub struct Company {
     pub bs: String,
 }
 
-/// Unit testing the server
+/// Unit testing the server endpoints for ideal and non-ideal cases
 #[cfg(test)]
 mod tests {
     //! Tests for `get_user` and `post_user` methods
@@ -82,51 +82,23 @@ mod tests {
 
     const URL: &str = "http://127.0.0.1:9090/api/v1/users";
 
-    /// Submits a GET request to a specified URL, and returns a vector of users. Expected response is in json format, and can be parsed by the `User` struct with accessible elements by key name.
-    async fn get_all(url: &str) -> Result<Vec<User>, Box<dyn std::error::Error>> {
-        let resp = reqwest::get(url).await?;
-        print_status(&resp);
-        Ok(resp.json::<Vec<User>>().await?)
-    }
-
-    /// `POST` a new user with a JSON formatted raw string (&str) passed into `post_user`. Returns a `User` struct with fields filled as returned by the endpoint,if the post is valid. This will include a new `User.id` field if the user is set properly.
-    ///
-    /// The name will need to be at least 3 characters long and the email address should be valid.
-    ///
-    /// ## Errors
-    ///
-    /// This will panic if the `name` is not within range (3,80) characters, or `email` is not valid.
-    ///
-    /// > Note: The name will need to be between 3 and 80 characters long and the email address should be valid.
-    async fn post(url: &str, user_json: &str) -> Result<User, Box<dyn std::error::Error>> {
-        let post: User = serde_json::from_str(user_json)?;
+    /// `POST` a new user with a JSON formatted raw string. Returns a `User` struct with fields filled as returned by the endpoint,if the post is valid. This will include a new `User.id` field if the user is set properly.
+    async fn post_user(user_str: &str) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
+        let post: User = serde_json::from_str(user_str)?;
 
         let client = reqwest::Client::new();
-        let resp = client.post(url).json(&post).send().await?;
-        print_status(&resp);
+        let resp = client.post(URL).json(&post).send().await?;
 
-        let body = serde_json::from_str(resp.text().await?.as_str())?;
-
-        Ok(body)
+        Ok(resp)
     }
 
-    fn print_status(resp: &reqwest::Response) {
-        let text = format!(
-            "Response Status Code: {} ({}) - {}",
-            resp.status().as_str(),
-            resp.status().canonical_reason().unwrap(),
-            resp.url().as_str()
-        );
-        match resp.status() {
-            reqwest::StatusCode::OK => debug!("{}", &text),
-            reqwest::StatusCode::NOT_FOUND => error!("{}", &text),
-            _ => info!("{}", &text),
-        };
-    }
     #[actix_rt::main]
     #[test]
     async fn it_gets_users() -> Result<(), Box<dyn std::error::Error>> {
-        let users: Vec<User> = get_all(URL).await?;
+        let resp = reqwest::get(URL).await?;
+
+        assert_eq!(reqwest::StatusCode::OK, resp.status());
+        let users = resp.json::<Vec<User>>().await?;
 
         assert!(users.len() > 0);
 
@@ -141,16 +113,14 @@ mod tests {
         "name": "Martin Fowler",
         "email": "martin@martinfowler.com"
     }"#;
+        let resp = post_user(user_str).await?;
 
-        let resp_json_expected: User = serde_json::from_value(
+        let expected: User = serde_json::from_value(
             json!({ "apiId": String::from("v1"), "email": String::from("martin@martinfowler.com"), "id": 11, "name": String::from("Martin Fowler")}),
         )?; //NOTE: assumes id = 11, otherwise fails! Could we instead make a wildcard?
 
-        // info!("Posting new user:\n{}...", user_str);
-        let new_user = post(URL, user_str).await?;
-        // info!("---Response (full body):\n{:#?}", new_user);
-
-        assert_eq!(resp_json_expected, new_user);
+        assert_eq!(reqwest::StatusCode::CREATED, resp.status());
+        assert_eq!(expected, resp.json::<User>().await?);
 
         Ok(())
     }
@@ -163,36 +133,40 @@ mod tests {
         "name": "MF",
         "email": "fine@email.com"
     }"#;
+        let resp = post_user(user_str).await?;
 
-        // info!("Posting new user:\n{}...", user_str);
-        let new_user = post(URL, user_str).await?;
-        // info!("---Response (full body):\n{:#?}", new_user);
+        assert_eq!(reqwest::StatusCode::UNPROCESSABLE_ENTITY, resp.status());
 
-        assert_eq!(resp_json_expected, new_user);
+        Ok(())
     }
 
     #[actix_rt::main]
     #[test]
-    async fn it_fails_to_post_a_long_user_name() {
+    async fn it_fails_to_post_a_long_user_name() -> Result<(), Box<dyn std::error::Error>> {
         let user_str = r#"
     { 
         "name": "9&mwuYuR&Hhp4p3%@bCvXVs5tbvZhFqmci8hcTXMSwi@x44e6M$mmQ#kE^agBNT3Brfnq757r8a#gJ$!vCYTd4SqMaHuAqSMbea4uhrC^2qi3%jFw",
         "email": "fine@email.com"
     }"#;
+        let resp = post_user(user_str).await?;
 
-        post(URL, user_str).await.unwrap();
+        assert_eq!(reqwest::StatusCode::UNPROCESSABLE_ENTITY, resp.status());
+
+        Ok(())
     }
 
     #[actix_rt::main]
     #[test]
-    #[should_panic]
-    async fn it_fails_to_post_invalid_user_email() {
+    async fn it_fails_to_post_invalid_user_email() -> Result<(), Box<dyn std::error::Error>> {
         let user_str = r#"
     { 
         "name": "My Name",
         "email": "bad"
     }"#;
+        let resp = post_user(user_str).await?;
 
-        post(URL, user_str).await.unwrap();
+        assert_eq!(reqwest::StatusCode::UNPROCESSABLE_ENTITY, resp.status());
+
+        Ok(())
     }
 }
