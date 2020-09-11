@@ -2,8 +2,10 @@
 //!
 //! Tasks defined `rust_actix-basic.pdf`
 //!
-//! - Modeling endpoint behavior base on [this test api](https://jsonplaceholder.typicode.com/api/v1/users)
-//! - This server implementation based on [this basic example](https://github.com/actix/examples/blob/master/basics/src/main.rs)
+//! - Modeling endpoint behavior based on
+//! [this test api](https://jsonplaceholder.typicode.com/api/v1/users)
+//! - This server implementation based on
+//! [this basic example](https://github.com/actix/examples/blob/master/basics/src/main.rs)
 
 use ::serde_json;
 use simplelog::*;
@@ -17,12 +19,6 @@ use actix_web::http::StatusCode;
 use actix_web::{error, middleware, web, App, Error, HttpResponse, HttpServer, Result};
 
 mod user;
-
-/// favicon handler
-#[get("/favicon.ico")]
-async fn favicon() -> Result<fs::NamedFile> {
-    Ok(fs::NamedFile::open("static/favicon.ico")?)
-}
 
 /// simple index handler
 #[get("/health")]
@@ -54,11 +50,13 @@ async fn post_user(
 ) -> Result<HttpResponse, Error> {
     vers_check(&vers)?;
 
-    // NOTE: this results in *dummy* response, needs to write to and return database values in production!!
+    // NOTE: this results in *dummy* response
+    // needs to write to and return database values in production!!
     let mut new_user = user.into_inner();
     new_user.id = 11;
 
-    // validation requirements defined in User struct definition, for each element with a #[validate(...)] macro
+    // validation requirements defined in User struct definition
+    // for each element with a #[validate(...)] macro
     match new_user.validate() {
         Ok(()) => {
             Ok(HttpResponse::build(StatusCode::CREATED)

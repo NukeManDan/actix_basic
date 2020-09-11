@@ -54,8 +54,10 @@ pub struct Company {
 #[cfg(test)]
 mod tests {
     //! Tests for `get_user` and `post_user` methods
-    //! Note: the endpoints for this lib are HARD CODED. only to be used with `http://127.0.0.1:9090/api/v1/users`
-    //! Emulating the minimum behavior of `https://jsonplaceholder.typicode.com/api/v1/users`
+    //! **Note: the endpoints for this lib are HARD CODED.**
+    //! Only to be used with `http://127.0.0.1:9090/api/v1/users`
+    //! Emulating the minimum behavior of
+    //! `https://jsonplaceholder.typicode.com/api/v1/users`
 
     use super::*;
 
@@ -64,7 +66,10 @@ mod tests {
 
     const URL: &str = "http://127.0.0.1:9090/api/v1/users";
 
-    /// `POST` a new user with a JSON formatted raw string. Returns a `User` struct with fields filled as returned by the endpoint,if the post is valid. This will include a new `User.id` field if the user is set properly.
+    /// `POST` a new user with a JSON formatted raw string.
+    /// Returns a `User` struct with fields filled as returned by the endpoint
+    ///  if the post is valid.
+    ///  This will include a new `User.id` field if the user is set properly.
     async fn post_user(user_str: &str) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
         let post: User = serde_json::from_str(user_str)?;
 
@@ -99,7 +104,8 @@ mod tests {
 
         let expected: User = serde_json::from_value(
             json!({ "apiId": String::from("v1"), "email": String::from("martin@martinfowler.com"), "id": 11, "name": String::from("Martin Fowler")}),
-        )?; //NOTE: assumes id = 11, otherwise fails! Could we instead make a wildcard?
+        )?; // NOTE: assumes id = 11,
+            // otherwise fails! Could we instead make a wildcard?
 
         assert_eq!(reqwest::StatusCode::CREATED, resp.status());
         assert_eq!(expected, resp.json::<User>().await?);
