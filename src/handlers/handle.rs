@@ -47,10 +47,7 @@ pub async fn post_user(
     // validation requirements defined in User struct definition
     // for each element with a #[validate(...)] macro
     match new_user.validate() {
-        Ok(()) => {
-            Ok(HttpResponse::build(StatusCode::CREATED)
-                .json(serde_json::json!(&new_user)))
-        }
+        Ok(()) => Ok(HttpResponse::build(StatusCode::CREATED).json(serde_json::json!(&new_user))),
         Err(e) => Err(error::ErrorUnprocessableEntity(e)),
     }
 }
@@ -78,16 +75,16 @@ mod tests {
 
     use super::*;
 
-    use std::env;
     use reqwest;
     use serde_json::json;
+    use std::env;
 
     /// Set the endpoint URL of a request.
     /// Looks for env var "BIND_URL" as a base,
-    /// or uses default http://127.0.0.1:9090 
+    /// or uses default http://127.0.0.1:9090
     fn endpoint(end: &str) -> String {
-        let tmp = env::var("BIND_URL").unwrap_or("http://127.0.0.1:9090".into())+end;
-        eprintln!("{}",tmp);
+        let tmp = env::var("BIND_URL").unwrap_or("http://127.0.0.1:9090".into()) + end;
+        eprintln!("{}", tmp);
         tmp
     }
 
@@ -95,11 +92,18 @@ mod tests {
     /// Returns a `User` struct with fields filled as returned by the endpoint
     ///  if the post is valid.
     ///  This will include a new `User.id` field if the user is set properly.
-    async fn post_user(user_str: &str) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
+    async fn post_user(
+        ver: &str,
+        user_str: &str,
+    ) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
         let post: user::User = serde_json::from_str(user_str)?;
 
         let client = reqwest::Client::new();
-        let resp = client.post(endpoint("/api/v1/users").as_str()).json(&post).send().await?;
+        let resp = client
+            .post(endpoint(format!("/api/{}/users", ver).as_str()).as_str())
+            .json(&post)
+            .send()
+            .await?;
 
         Ok(resp)
     }
@@ -142,13 +146,28 @@ mod tests {
 
     #[actix_rt::main]
     #[test]
+    async fn it_fails_for_bad_version() -> Result<(), Box<dyn std::error::Error>> {
+        let user_str = r#"
+    { 
+        "name": "My Name",
+        "email": "my@email.com"
+    }"#;
+        let resp = post_user("v3", user_str).await?;
+
+        assert_eq!(reqwest::StatusCode::METHOD_NOT_ALLOWED, resp.status());
+
+        Ok(())
+    }
+
+    #[actix_rt::main]
+    #[test]
     async fn it_creates_a_user() -> Result<(), Box<dyn std::error::Error>> {
         let user_str = r#"
     {
         "name": "Martin Fowler",
         "email": "martin@martinfowler.com"
     }"#;
-        let resp = post_user(user_str).await?;
+        let resp = post_user("v1", user_str).await?;
 
         let expected: user::User = serde_json::from_value(
             json!({ "apiId": String::from("v1"), "email": String::from("martin@martinfowler.com"), "id": 11, "name": String::from("Martin Fowler")}),
@@ -169,7 +188,7 @@ mod tests {
         "name": "MF",
         "email": "fine@email.com"
     }"#;
-        let resp = post_user(user_str).await?;
+        let resp = post_user("v1", user_str).await?;
 
         assert_eq!(reqwest::StatusCode::UNPROCESSABLE_ENTITY, resp.status());
 
@@ -184,7 +203,7 @@ mod tests {
         "name": "9&mwuYuR&Hhp4p3%@bCvXVs5tbvZhFqmci8hcTXMSwi@x44e6M$mmQ#kE^agBNT3Brfnq757r8a#gJ$!vCYTd4SqMaHuAqSMbea4uhrC^2qi3%jFw",
         "email": "fine@email.com"
     }"#;
-        let resp = post_user(user_str).await?;
+        let resp = post_user("v1", user_str).await?;
 
         assert_eq!(reqwest::StatusCode::UNPROCESSABLE_ENTITY, resp.status());
 
@@ -199,7 +218,7 @@ mod tests {
         "name": "My Name",
         "email": "bad"
     }"#;
-        let resp = post_user(user_str).await?;
+        let resp = post_user("v1", user_str).await?;
 
         assert_eq!(reqwest::StatusCode::UNPROCESSABLE_ENTITY, resp.status());
 
